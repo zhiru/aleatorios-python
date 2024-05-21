@@ -1,0 +1,57 @@
+# codigo muito simples para pegar os cherry pick de um repositiorio usando o selenium para faciltiar atualizacao de repositorios privados e correlacionados
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+import time
+
+def get_commit_details(url):
+    # Configurar o Selenium
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+    driver.get(url)
+    
+    time.sleep(3)  # Espera carregar a página
+
+    commits = []
+    
+    commit_elements = driver.find_elements(By.XPATH, '//a[@data-pjax="true" and contains(@href, "/commit/")]')
+    
+    for elem in commit_elements:
+        title = elem.get_attribute('title')
+        sha_url = elem.get_attribute('href')
+        sha = sha_url.split('/')[-1]
+        commits.append((title, sha))
+
+    driver.quit()
+    return commits
+
+def generate_cherry_pick_commands(commits):
+    commands = []
+    for title, sha in commits:
+        commands.append(f"# {title}")
+        commands.append(f"git cherry-pick {sha}")
+    return commands
+
+def save_commands_to_file(commands, filename):
+    with open(filename, 'w') as file:
+        for command in commands:
+            file.write(command + '\n')
+
+urls = [
+    'https://github.com/nocodeleaks/quepasa/commits/main/?before=e906d18e99832a2b83ea504177a574ae7b580fc0+35',
+    'https://github.com/nocodeleaks/quepasa/commits/main/?after=e906d18e99832a2b83ea504177a574ae7b580fc0+34',
+    'https://github.com/nocodeleaks/quepasa/commits/main/?after=e906d18e99832a2b83ea504177a574ae7b580fc0+69',
+    'https://github.com/nocodeleaks/quepasa/commits/main/?after=e906d18e99832a2b83ea504177a574ae7b580fc0+104',
+    # Adicione mais URLs conforme necessário
+]
+
+all_commits = []
+for url in urls:
+    commits = get_commit_details(url)
+    all_commits.extend(commits)
+
+commands = generate_cherry_pick_commands(all_commits)
+save_commands_to_file(commands, 'git-cherry.txt')
+
+print(f"Commands saved to git-cherry.txt")
